@@ -47,24 +47,18 @@ _SEVERITY_CONFIG = {
         "bg":       "#ECFDF5",
         "border":   "#A7F3D0",
         "label":    "Normal",
-        "headline": "Rate risk is within normal bounds.",
-        "subtext":  "No immediate action required. Continue routine monitoring of macro indicators.",
     },
     "ELEVATED": {
         "color":    "#B45309",
         "bg":       "#FFFBEB",
         "border":   "#FCD34D",
         "label":    "Elevated",
-        "headline": "Rate risk is trending toward our alert threshold.",
-        "subtext":  "Proactive review is recommended before conditions deteriorate further.",
     },
     "CRITICAL": {
         "color":    "#DC2626",
         "bg":       "#FEF2F2",
         "border":   "#FCA5A5",
         "label":    "Critical",
-        "headline": "Rate risk has breached the alert threshold.",
-        "subtext":  "Immediate review of lending exposure and liquidity position is required.",
     },
 }
 
@@ -127,16 +121,6 @@ _HTML_TEMPLATE = """\
       color: %%SEVERITY_COLOR%%; font-variant-numeric: tabular-nums; line-height: 1;
     }
     .hero-val-sub { font-size: 12px; color: #94A3B8; margin-top: 5px; }
-    .hero-headline { font-size: 17px; font-weight: 600; color: #0F172A; margin-bottom: 6px; }
-    .hero-subtext  { font-size: 14px; color: #475569; line-height: 1.6; }
-    .hero-driver {
-      margin-top: 16px; padding: 10px 14px;
-      background: %%SEVERITY_BG%%;
-      border: 1px solid %%SEVERITY_BORDER%%;
-      border-radius: 8px;
-      font-size: 13px; color: #334155; line-height: 1.6;
-    }
-    .hero-driver strong { color: %%SEVERITY_COLOR%%; }
 
     /* ── Section label ── */
     .label {
@@ -157,6 +141,10 @@ _HTML_TEMPLATE = """\
       display: flex; align-items: center; justify-content: center;
     }
     .action-text { font-size: 13.5px; color: #334155; line-height: 1.55; padding-top: 1px; }
+
+    /* ── Hero driver & pending placeholder ── */
+    .hero-driver { font-size: 13px; color: #64748B; margin-top: 8px; }
+    .pending     { font-size: 13px; color: #94A3B8; font-style: italic; }
 
     /* ── Stats ── */
     .stat + .stat { margin-top: 18px; padding-top: 18px; border-top: 1px solid #F1F5F9; }
@@ -233,12 +221,8 @@ _HTML_TEMPLATE = """\
           <div class="badge">%%SEVERITY_LABEL%%</div>
           <div class="hero-val">%%CURRENT_INDEX%%</div>
           <div class="hero-val-sub">Rate Risk Index &middot; %%CURRENT_DATE%%</div>
+          %%PRIMARY_DRIVER%%
         </div>
-      </div>
-      <div class="hero-headline">%%SEVERITY_HEADLINE%%</div>
-      <div class="hero-subtext">%%SEVERITY_SUBTEXT%%</div>
-      <div class="hero-driver">
-        <strong>Primary driver &mdash;</strong> %%PRIMARY_DRIVER%%
       </div>
     </div>
   </div>
@@ -251,48 +235,48 @@ _HTML_TEMPLATE = """\
     </div>
   </div>
 
-  <!-- ── Actions + details ── -->
-  <div class="section grid-2">
+  <!-- ── Risk details + Recommended Actions ── -->
+  <div class="section">
+    <div class="grid-2">
 
-    <div class="card">
-      <div class="label">Recommended Actions</div>
-      <ul class="action-list">
+      <div class="card">
+        <div class="label">Risk Details</div>
+
+        <div class="stat">
+          <div class="stat-label">Threshold Proximity</div>
+          <div class="gauge-track"><div class="gauge-fill"></div></div>
+          <div class="gauge-labels">
+            <span>0%</span>
+            <span class="mid">%%THRESHOLD_PCT%%%</span>
+            <span>Alert (100%)</span>
+          </div>
+        </div>
+
+        <div class="stat">
+          <div class="stat-label">Current Index</div>
+          <div class="stat-value">
+            %%CURRENT_INDEX%%
+            <span style="font-size:12px;font-weight:400;color:#94A3B8">&nbsp;(threshold &plusmn;1.5&sigma;)</span>
+          </div>
+        </div>
+
+        <div class="stat">
+          <div class="stat-label">Severity</div>
+          <div class="stat-value" style="color:%%SEVERITY_COLOR%%">%%SEVERITY_LABEL%%</div>
+        </div>
+
+        <div class="stat">
+          <div class="stat-label">Reporting Period</div>
+          <div class="stat-value" style="font-weight:400;font-size:14px">%%CURRENT_DATE%%</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="label">Recommended Actions</div>
         %%ACTIONS_HTML%%
-      </ul>
+      </div>
+
     </div>
-
-    <div class="card">
-      <div class="label">Risk Details</div>
-
-      <div class="stat">
-        <div class="stat-label">Threshold Proximity</div>
-        <div class="gauge-track"><div class="gauge-fill"></div></div>
-        <div class="gauge-labels">
-          <span>0%</span>
-          <span class="mid">%%THRESHOLD_PCT%%%</span>
-          <span>Alert (100%)</span>
-        </div>
-      </div>
-
-      <div class="stat">
-        <div class="stat-label">Current Index</div>
-        <div class="stat-value">
-          %%CURRENT_INDEX%%
-          <span style="font-size:12px;font-weight:400;color:#94A3B8">&nbsp;(threshold &plusmn;1.5&sigma;)</span>
-        </div>
-      </div>
-
-      <div class="stat">
-        <div class="stat-label">Severity</div>
-        <div class="stat-value" style="color:%%SEVERITY_COLOR%%">%%SEVERITY_LABEL%%</div>
-      </div>
-
-      <div class="stat">
-        <div class="stat-label">Reporting Period</div>
-        <div class="stat-value" style="font-weight:400;font-size:14px">%%CURRENT_DATE%%</div>
-      </div>
-    </div>
-
   </div>
 
   <!-- ── Executive memo (collapsible) ── -->
@@ -303,7 +287,7 @@ _HTML_TEMPLATE = """\
         <span class="accordion-caret" id="caret">&#9660;</span>
       </button>
       <div class="accordion-body" id="memo-body">
-        <div class="memo">%%MEMO_HTML%%</div>
+        %%MEMO_HTML%%
       </div>
     </div>
   </div>
@@ -479,25 +463,33 @@ def render_html() -> None:
     current_date  = signal.index[-1].strftime("%B %Y")
     severity      = alert.get("severity", "NORMAL")
     threshold_pct = alert.get("threshold_proximity_pct", 0.0)
-    primary_driver = alert.get("primary_driver", "—")
-    actions        = alert.get("recommended_actions", [])
 
     sc = _SEVERITY_CONFIG.get(severity, _SEVERITY_CONFIG["NORMAL"])
 
     # Build substitutions
-    idx_display  = f"{current_index:+.3f}\u03c3"
-    actions_html = "\n".join(
-        f'<li class="action-item">'
-        f'<span class="action-num">{i + 1}</span>'
-        f'<span class="action-text">{a}</span>'
-        f'</li>'
-        for i, a in enumerate(actions)
+    idx_display = f"{current_index:+.3f}\u03c3"
+    chart_json  = _build_chart(signal)
+    gen_date    = datetime.date.today().strftime("%B %d, %Y")
+    tpct        = f"{threshold_pct:.1f}"
+
+    primary_driver = alert.get("primary_driver", "")
+    primary_driver_html = (
+        f'<div class="hero-driver">Primary Driver: {primary_driver}</div>'
+        if primary_driver else ""
     )
 
-    chart_json = _build_chart(signal)
-    memo_html  = _md_to_html(memo_text)
-    gen_date   = datetime.date.today().strftime("%B %d, %Y")
-    tpct       = f"{threshold_pct:.1f}"
+    actions = alert.get("recommended_actions", [])
+    if actions:
+        items = "\n".join(
+            f'<li class="action-item">'
+            f'<span class="action-num">{i}</span>'
+            f'<span class="action-text">{action}</span>'
+            f'</li>'
+            for i, action in enumerate(actions, 1)
+        )
+        actions_html = f'<ul class="action-list">{items}</ul>'
+    else:
+        actions_html = '<p class="pending">AI analysis pending \u2014 run risk_alert.py to generate.</p>'
 
     html = (
         _HTML_TEMPLATE
@@ -507,17 +499,13 @@ def render_html() -> None:
         .replace("%%SEVERITY_BG%%",       sc["bg"])
         .replace("%%SEVERITY_BORDER%%",   sc["border"])
         .replace("%%SEVERITY_LABEL%%",    sc["label"])
-        .replace("%%SEVERITY_HEADLINE%%", sc["headline"])
-        .replace("%%SEVERITY_SUBTEXT%%",  sc["subtext"])
         .replace("%%CURRENT_INDEX%%",     idx_display)
         .replace("%%CURRENT_DATE%%",      current_date)
         .replace("%%THRESHOLD_PCT%%",     tpct)
-        .replace("%%PRIMARY_DRIVER%%",    primary_driver)
-        .replace("%%ACTIONS_HTML%%",      actions_html)
-        .replace("%%MEMO_HTML%%",         memo_html)
         .replace("%%GENERATED_DATE%%",    gen_date)
+        .replace("%%PRIMARY_DRIVER%%",    primary_driver_html)
+        .replace("%%ACTIONS_HTML%%",      actions_html)
     )
-
     OUTPUT_DIR.mkdir(exist_ok=True)
     OUT_HTML.write_text(html, encoding="utf-8")
     print(f"  Saved → {OUT_HTML}")

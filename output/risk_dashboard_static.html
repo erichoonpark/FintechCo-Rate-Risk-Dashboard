@@ -77,10 +77,6 @@
     }
     .action-text { font-size: 13.5px; color: #334155; line-height: 1.55; padding-top: 1px; }
 
-    /* ── Hero driver & pending placeholder ── */
-    .hero-driver { font-size: 13px; color: #64748B; margin-top: 8px; }
-    .pending     { font-size: 13px; color: #94A3B8; font-style: italic; }
-
     /* ── Stats ── */
     .stat + .stat { margin-top: 18px; padding-top: 18px; border-top: 1px solid #F1F5F9; }
     .stat-label {
@@ -156,7 +152,6 @@
           <div class="badge">Elevated</div>
           <div class="hero-val">+1.055σ</div>
           <div class="hero-val-sub">Rate Risk Index &middot; March 2026</div>
-          <div class="hero-driver">Primary Driver: Federal Reserve rate tightening cycle driving composite index toward threshold</div>
         </div>
       </div>
     </div>
@@ -170,52 +165,41 @@
     </div>
   </div>
 
-  <!-- ── Risk details + Recommended Actions ── -->
+  <!-- ── Risk details ── -->
   <div class="section">
-    <div class="grid-2">
 
-      <div class="card">
-        <div class="label">Risk Details</div>
+    <div class="card">
+      <div class="label">Risk Details</div>
 
-        <div class="stat">
-          <div class="stat-label">Threshold Proximity</div>
-          <div class="gauge-track"><div class="gauge-fill"></div></div>
-          <div class="gauge-labels">
-            <span>0%</span>
-            <span class="mid">70.3%</span>
-            <span>Alert (100%)</span>
-          </div>
-        </div>
-
-        <div class="stat">
-          <div class="stat-label">Current Index</div>
-          <div class="stat-value">
-            +1.055σ
-            <span style="font-size:12px;font-weight:400;color:#94A3B8">&nbsp;(threshold &plusmn;1.5&sigma;)</span>
-          </div>
-        </div>
-
-        <div class="stat">
-          <div class="stat-label">Severity</div>
-          <div class="stat-value" style="color:#B45309">Elevated</div>
-        </div>
-
-        <div class="stat">
-          <div class="stat-label">Reporting Period</div>
-          <div class="stat-value" style="font-weight:400;font-size:14px">March 2026</div>
+      <div class="stat">
+        <div class="stat-label">Threshold Proximity</div>
+        <div class="gauge-track"><div class="gauge-fill"></div></div>
+        <div class="gauge-labels">
+          <span>0%</span>
+          <span class="mid">70.3%</span>
+          <span>Alert (100%)</span>
         </div>
       </div>
 
-      <div class="card">
-        <div class="label">Recommended Actions</div>
-        <ul class="action-list"><li class="action-item"><span class="action-num">1</span><span class="action-text">Review variable-rate loan portfolio exposure and stress-test for an additional 50–100bps rate increase over the next two quarters</span></li>
-<li class="action-item"><span class="action-num">2</span><span class="action-text">Reassess credit loss reserves for segments most sensitive to borrower debt-service costs (e.g., personal loans, SMB lending)</span></li>
-<li class="action-item"><span class="action-num">3</span><span class="action-text">Monitor payment delinquency trends weekly in the digital payments book as consumer liquidity may tighten if rates rise further</span></li>
-<li class="action-item"><span class="action-num">4</span><span class="action-text">Lock in funding costs where possible through fixed-rate facilities or hedging instruments before any next Fed move</span></li>
-<li class="action-item"><span class="action-num">5</span><span class="action-text">Establish a board-level rate risk trigger at index +1.35σ to initiate contingency liquidity planning ahead of a potential threshold breach</span></li></ul>
+      <div class="stat">
+        <div class="stat-label">Current Index</div>
+        <div class="stat-value">
+          +1.055σ
+          <span style="font-size:12px;font-weight:400;color:#94A3B8">&nbsp;(threshold &plusmn;1.5&sigma;)</span>
+        </div>
       </div>
 
+      <div class="stat">
+        <div class="stat-label">Severity</div>
+        <div class="stat-value" style="color:#B45309">Elevated</div>
+      </div>
+
+      <div class="stat">
+        <div class="stat-label">Reporting Period</div>
+        <div class="stat-value" style="font-weight:400;font-size:14px">March 2026</div>
+      </div>
     </div>
+
   </div>
 
   <!-- ── Executive memo (collapsible) ── -->

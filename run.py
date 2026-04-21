@@ -1,12 +1,15 @@
-"""Full pipeline: ingest → analyze → executive memo → structured alert → render dashboard."""
+"""Full pipeline: ingest → analyze → executive memo → structured alert → render dashboard → Slack."""
 
 import json
+import os
 import webbrowser
 from src.ingest.fred_client import fetch_and_save, SERIES
 from src.analysis.rate_risk import compute_risk_signal, save_results
 from src.dashboard.render import render_html, OUT_HTML
 from src.reporting.risk_memo import generate_memo, MEMO_PATH
 from src.reporting.risk_alert import generate_alert, ALERT_PATH
+from src.reporting.slack_alert import post_alert
+
 if __name__ == "__main__":
     print("=== Step 1: Ingest ===")
     for series_id, label in SERIES.items():
@@ -37,5 +40,11 @@ if __name__ == "__main__":
     print("\n=== Step 5: Render Dashboard ===")
     render_html()
     webbrowser.open(OUT_HTML.as_uri())
+
+    print("\n=== Step 6: Slack Alert ===")
+    if os.getenv("SLACK_WEBHOOK_URL"):
+        post_alert()
+    else:
+        print("  Skipped — SLACK_WEBHOOK_URL not set in .env")
 
     print("\nDone.")
