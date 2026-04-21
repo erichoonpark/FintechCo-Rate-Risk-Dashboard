@@ -166,28 +166,6 @@ _HTML_TEMPLATE = """\
     .gauge-labels { display: flex; justify-content: space-between; font-size: 11px; color: #CBD5E1; }
     .gauge-labels .mid { color: %%SEVERITY_COLOR%%; font-weight: 700; }
 
-    /* ── Accordion ── */
-    .accordion-btn {
-      width: 100%; display: flex; justify-content: space-between; align-items: center;
-      background: none; border: none; cursor: pointer; padding: 0; color: #0F172A; text-align: left;
-    }
-    .accordion-btn:hover .accordion-title { color: #1E3A5F; }
-    .accordion-title { font-size: 15px; font-weight: 600; }
-    .accordion-caret { font-size: 12px; color: #CBD5E1; transition: transform 0.2s ease; display: inline-block; }
-    .accordion-caret.open { transform: rotate(180deg); }
-    .accordion-body { display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid #F1F5F9; }
-    .accordion-body.open { display: block; }
-
-    /* ── Memo prose ── */
-    .memo h1 { font-size: 17px; font-weight: 700; color: #0F172A; margin-bottom: 2px; }
-    .memo h2 {
-      font-size: 11px; font-weight: 700; letter-spacing: 0.8px;
-      text-transform: uppercase; color: #1E3A5F; margin: 22px 0 8px;
-    }
-    .memo p  { font-size: 14px; color: #374151; line-height: 1.75; margin-bottom: 10px; }
-    .memo p strong { color: #0F172A; }
-    .memo hr { border: none; border-top: 1px solid #F1F5F9; margin: 14px 0; }
-
     /* ── Footer ── */
     .footer {
       margin-top: 36px; padding-top: 16px; border-top: 1px solid #E2E8F0;
@@ -235,60 +213,46 @@ _HTML_TEMPLATE = """\
     </div>
   </div>
 
-  <!-- ── Risk details + Recommended Actions ── -->
+  <!-- ── Risk details ── -->
   <div class="section">
-    <div class="grid-2">
+    <div class="card">
+      <div class="label">Risk Details</div>
 
-      <div class="card">
-        <div class="label">Risk Details</div>
-
-        <div class="stat">
-          <div class="stat-label">Threshold Proximity</div>
-          <div class="gauge-track"><div class="gauge-fill"></div></div>
-          <div class="gauge-labels">
-            <span>0%</span>
-            <span class="mid">%%THRESHOLD_PCT%%%</span>
-            <span>Alert (100%)</span>
-          </div>
-        </div>
-
-        <div class="stat">
-          <div class="stat-label">Current Index</div>
-          <div class="stat-value">
-            %%CURRENT_INDEX%%
-            <span style="font-size:12px;font-weight:400;color:#94A3B8">&nbsp;(threshold &plusmn;1.5&sigma;)</span>
-          </div>
-        </div>
-
-        <div class="stat">
-          <div class="stat-label">Severity</div>
-          <div class="stat-value" style="color:%%SEVERITY_COLOR%%">%%SEVERITY_LABEL%%</div>
-        </div>
-
-        <div class="stat">
-          <div class="stat-label">Reporting Period</div>
-          <div class="stat-value" style="font-weight:400;font-size:14px">%%CURRENT_DATE%%</div>
+      <div class="stat">
+        <div class="stat-label">Threshold Proximity</div>
+        <div class="gauge-track"><div class="gauge-fill"></div></div>
+        <div class="gauge-labels">
+          <span>0%</span>
+          <span class="mid">%%THRESHOLD_PCT%%%</span>
+          <span>Alert (100%)</span>
         </div>
       </div>
 
-      <div class="card">
-        <div class="label">Recommended Actions</div>
-        %%ACTIONS_HTML%%
+      <div class="stat">
+        <div class="stat-label">Current Index</div>
+        <div class="stat-value">
+          %%CURRENT_INDEX%%
+          <span style="font-size:12px;font-weight:400;color:#94A3B8">&nbsp;(threshold &plusmn;1.5&sigma;)</span>
+        </div>
       </div>
 
+      <div class="stat">
+        <div class="stat-label">Severity</div>
+        <div class="stat-value" style="color:%%SEVERITY_COLOR%%">%%SEVERITY_LABEL%%</div>
+      </div>
+
+      <div class="stat">
+        <div class="stat-label">Reporting Period</div>
+        <div class="stat-value" style="font-weight:400;font-size:14px">%%CURRENT_DATE%%</div>
+      </div>
     </div>
   </div>
 
-  <!-- ── Executive memo (collapsible) ── -->
+  <!-- ── Recommended Actions ── -->
   <div class="section">
     <div class="card">
-      <button class="accordion-btn" onclick="toggleMemo(this)" aria-expanded="false">
-        <span class="accordion-title">Executive Memo</span>
-        <span class="accordion-caret" id="caret">&#9660;</span>
-      </button>
-      <div class="accordion-body" id="memo-body">
-        %%MEMO_HTML%%
-      </div>
+      <div class="label">Recommended Actions</div>
+      %%ACTIONS_HTML%%
     </div>
   </div>
 
@@ -303,13 +267,7 @@ _HTML_TEMPLATE = """\
 const spec = %%CHART_JSON%%;
 Plotly.newPlot('chart', spec.data, spec.layout, {responsive: true, displayModeBar: false});
 
-function toggleMemo(btn) {
-  const body   = document.getElementById('memo-body');
-  const caret  = document.getElementById('caret');
-  const isOpen = body.classList.toggle('open');
-  caret.classList.toggle('open', isOpen);
-  btn.setAttribute('aria-expanded', String(isOpen));
-}
+
 </script>
 
 </body>
