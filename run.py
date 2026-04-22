@@ -1,14 +1,9 @@
-"""Full pipeline: ingest → analyze → executive memo → structured alert → render dashboard → Slack."""
+"""Full pipeline: ingest → analyze → render dashboard."""
 
-import json
-import os
 import webbrowser
 from src.ingest.fred_client import fetch_and_save, SERIES
 from src.analysis.rate_risk import compute_risk_signal, save_results
 from src.dashboard.render import render_html, OUT_HTML
-from src.reporting.risk_memo import generate_memo, MEMO_PATH
-from src.reporting.risk_alert import generate_alert, ALERT_PATH
-from src.reporting.slack_alert import post_alert
 
 if __name__ == "__main__":
     print("=== Step 1: Ingest ===")
@@ -23,28 +18,8 @@ if __name__ == "__main__":
     out_path = save_results(df)
     print(f"  Saved → {out_path}")
 
-    print("\n=== Step 3: Executive Briefing ===")
-    memo = generate_memo()
-    MEMO_PATH.write_text(memo)
-    print(f"  Saved → {MEMO_PATH}")
-
-    print("\n=== Step 4: Structured Alert ===")
-    alert = generate_alert()
-    ALERT_PATH.write_text(json.dumps(alert, indent=2))
-    print(f"  Severity:    {alert['severity']}")
-    print(f"  Driver:      {alert['primary_driver']}")
-    print(f"  Threshold:   {alert['threshold_proximity_pct']:.0f}% of 1.5σ")
-    print(f"  Actions:     {len(alert['recommended_actions'])} items")
-    print(f"  Saved → {ALERT_PATH}")
-
-    print("\n=== Step 5: Render Dashboard ===")
+    print("\n=== Step 3: Render Dashboard ===")
     render_html()
     webbrowser.open(OUT_HTML.as_uri())
-
-    print("\n=== Step 6: Slack Alert ===")
-    if os.getenv("SLACK_WEBHOOK_URL"):
-        post_alert()
-    else:
-        print("  Skipped — SLACK_WEBHOOK_URL not set in .env")
 
     print("\nDone.")
