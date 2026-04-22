@@ -61,3 +61,8 @@ python src/dashboard/render.py        # dashboard → output/risk_dashboard.html
 | `output/risk_memo.md` | Plain-English executive briefing |
 | `output/risk_alert.json` | Structured alert (severity, driver, recommended actions) |
 | `output/risk_dashboard.html` | Self-contained interactive dashboard |
+
+## Automated PR Review
+
+This repo uses a GitHub Actions workflow to trigger Claude code + security reviews.
+Comment `@claude review` on any pull request to invoke it.
