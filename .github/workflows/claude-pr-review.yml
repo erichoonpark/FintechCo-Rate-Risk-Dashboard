@@ -1,83 +1,89 @@
 name: Claude PR Review
 
-# Trigger: fires whenever a new comment is created on any issue or pull request.
-# We'll filter down to PR-only comments that contain "@claude review" in the job step.
 on:
   issue_comment:
     types: [created]
 
-# Minimal permissions: read PR content, write comments back.
 permissions:
   contents: read
   pull-requests: write
-  issues: write        # needed to post the reply comment via issues API
+  issues: write
 
 jobs:
   claude-review:
     name: Run Claude code + security review
     runs-on: ubuntu-latest
 
-    # Guard 1 — only run on pull request comments (not plain issue comments).
-    # Guard 2 — only run when the comment body contains "@claude review".
-    # Guard 3 — ignore comments from bots so the workflow doesn't trigger on its own reply.
     if: >-
       github.event.issue.pull_request != null &&
       contains(github.event.comment.body, '@claude review') &&
       github.event.comment.user.type != 'Bot'
 
     steps:
-      # ── 1. Acknowledge the request ──────────────────────────────────────────
-      # Post a quick "working on it" reply so the reviewer knows the bot saw them.
       - name: Post acknowledgement comment
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO:     ${{ github.repository }}
-          ISSUE:    ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
         run: |
           gh api \
             --method POST \
             "repos/${REPO}/issues/${ISSUE}/comments" \
             --field body="🤖 **Claude review in progress...** I'll post results shortly."
 
-      # ── 2. Fetch PR metadata ─────────────────────────────────────────────────
-      # Use the built-in GitHub token + gh CLI to pull structured PR JSON.
-      # We store the PR number, title, base/head refs, and the HTML URL for context.
       - name: Fetch PR metadata
         id: pr_meta
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO:     ${{ github.repository }}
-          PR_NUM:   ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+          PR_NUM: ${{ github.event.issue.number }}
         run: |
           PR_JSON=$(gh api "repos/${REPO}/pulls/${PR_NUM}")
-          echo "pr_title=$(echo "$PR_JSON"   | jq -r '.title')"          >> "$GITHUB_OUTPUT"
-          echo "pr_url=$(echo "$PR_JSON"     | jq -r '.html_url')"       >> "$GITHUB_OUTPUT"
-          echo "base_ref=$(echo "$PR_JSON"   | jq -r '.base.ref')"       >> "$GITHUB_OUTPUT"
-          echo "head_ref=$(echo "$PR_JSON"   | jq -r '.head.ref')"       >> "$GITHUB_OUTPUT"
-          echo "author=$(echo "$PR_JSON"     | jq -r '.user.login')"     >> "$GITHUB_OUTPUT"
-          echo "pr_body=$(echo "$PR_JSON"    | jq -r '.body // ""')"     >> "$GITHUB_OUTPUT"
 
-      # ── 3. Fetch the diff ────────────────────────────────────────────────────
-      # Request the diff media type. We cap it at ~60 KB before sending to Claude
-      # to avoid hitting the API context limit on very large PRs.
+          PR_TITLE=$(echo "$PR_JSON" | jq -r '.title // ""')
+          PR_URL=$(echo "$PR_JSON" | jq -r '.html_url // ""')
+          BASE_REF=$(echo "$PR_JSON" | jq -r '.base.ref // ""')
+          HEAD_REF=$(echo "$PR_JSON" | jq -r '.head.ref // ""')
+          AUTHOR=$(echo "$PR_JSON" | jq -r '.user.login // ""')
+          PR_BODY=$(echo "$PR_JSON" | jq -r '.body // ""')
+
+          {
+            echo "pr_title<<EOF"
+            printf '%s\n' "$PR_TITLE"
+            echo "EOF"
+            echo "pr_url<<EOF"
+            printf '%s\n' "$PR_URL"
+            echo "EOF"
+            echo "base_ref<<EOF"
+            printf '%s\n' "$BASE_REF"
+            echo "EOF"
+            echo "head_ref<<EOF"
+            printf '%s\n' "$HEAD_REF"
+            echo "EOF"
+            echo "author<<EOF"
+            printf '%s\n' "$AUTHOR"
+            echo "EOF"
+            echo "pr_body<<EOF"
+            printf '%s\n' "$PR_BODY"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Fetch PR diff
         id: pr_diff
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO:     ${{ github.repository }}
-          PR_NUM:   ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+          PR_NUM: ${{ github.event.issue.number }}
         run: |
           gh api \
             --header "Accept: application/vnd.github.diff" \
             "repos/${REPO}/pulls/${PR_NUM}" > /tmp/pr.diff.full
 
-          # Truncate to 60 000 bytes to keep the Claude payload manageable.
           head -c 60000 /tmp/pr.diff.full > /tmp/pr.diff
 
           ORIG_LEN=$(wc -c < /tmp/pr.diff.full)
           TRUNC_LEN=$(wc -c < /tmp/pr.diff)
 
-          # Append a note if we had to truncate — no unindented bare [ needed.
           if [ "$ORIG_LEN" -gt "$TRUNC_LEN" ]; then
             printf '\n\n[diff truncated at 60,000 bytes — %s bytes in full diff]\n' \
               "$ORIG_LEN" >> /tmp/pr.diff
@@ -85,31 +91,31 @@ jobs:
 
           echo "diff_len=${TRUNC_LEN}" >> "$GITHUB_OUTPUT"
 
-      # ── 4. Call the Anthropic Messages API ──────────────────────────────────
-      # Python is available on ubuntu-latest. We use only the stdlib + urllib so
-      # we don't need a pip install step. The diff is read from the temp file
-      # written in the previous step.
       - name: Call Claude API and capture review
         id: claude_review
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          PR_TITLE:  ${{ steps.pr_meta.outputs.pr_title }}
-          PR_URL:    ${{ steps.pr_meta.outputs.pr_url }}
-          BASE_REF:  ${{ steps.pr_meta.outputs.base_ref }}
-          HEAD_REF:  ${{ steps.pr_meta.outputs.head_ref }}
+          PR_TITLE: ${{ steps.pr_meta.outputs.pr_title }}
+          PR_URL: ${{ steps.pr_meta.outputs.pr_url }}
+          BASE_REF: ${{ steps.pr_meta.outputs.base_ref }}
+          HEAD_REF: ${{ steps.pr_meta.outputs.head_ref }}
           PR_AUTHOR: ${{ steps.pr_meta.outputs.author }}
-          PR_BODY:   ${{ steps.pr_meta.outputs.pr_body }}
+          PR_BODY: ${{ steps.pr_meta.outputs.pr_body }}
         run: |
           python3 - <<'PYEOF'
-          import json, os, urllib.request, urllib.error, sys
+          import json
+          import os
+          import sys
+          import urllib.request
+          import urllib.error
 
-          api_key   = os.environ["ANTHROPIC_API_KEY"]
-          pr_title  = os.environ.get("PR_TITLE",  "(no title)")
-          pr_url    = os.environ.get("PR_URL",    "")
-          base_ref  = os.environ.get("BASE_REF",  "")
-          head_ref  = os.environ.get("HEAD_REF",  "")
+          api_key = os.environ["ANTHROPIC_API_KEY"]
+          pr_title = os.environ.get("PR_TITLE", "(no title)")
+          pr_url = os.environ.get("PR_URL", "")
+          base_ref = os.environ.get("BASE_REF", "")
+          head_ref = os.environ.get("HEAD_REF", "")
           pr_author = os.environ.get("PR_AUTHOR", "")
-          pr_body   = os.environ.get("PR_BODY",   "")
+          pr_body = os.environ.get("PR_BODY", "")
 
           with open("/tmp/pr.diff", "r", errors="replace") as f:
               diff = f.read()
@@ -117,15 +123,14 @@ jobs:
           system_prompt = (
               "You are a senior software engineer performing a pull request review. "
               "You are thorough, constructive, and precise. "
-              "You only comment on what is visible in the diff — you do not invent issues. "
-              "For security findings you are conservative: use 'Potential concern' when uncertain, "
-              "and explicitly state 'No obvious security issues found in this diff' when that is true. "
-              "Always end your review with a disclaimer that this is an automated review and is not a "
-              "substitute for formal AppSec review or automated scanning tools."
+              "You only comment on what is visible in the diff and do not invent issues. "
+              "For security findings, be conservative: use 'Potential concern:' when uncertain. "
+              "If no obvious security issues are visible, say so clearly. "
+              "Always end the review with a disclaimer that this is an automated review and not a substitute "
+              "for formal AppSec review or automated scanning tools."
           )
 
-          user_message = f"""Please review the following pull request and return your response in Markdown
-          using exactly these four sections:
+          user_message = f"""Please review the following pull request and return your response in Markdown using exactly these sections:
 
           ## Summary
           ## Code Review
@@ -148,12 +153,12 @@ jobs:
           ```
 
           Security review instructions:
-          - Flag only issues clearly visible in the diff (hardcoded secrets, risky auth/authz changes,
-            missing input validation, unsafe shell execution, SQL injection, path traversal, SSRF,
-            sensitive data in logs).
+          - Flag only issues clearly visible in the diff.
+          - Consider hardcoded secrets, risky auth/authz changes, missing input validation,
+            unsafe shell execution, SQL injection, path traversal, SSRF, and sensitive data in logs.
           - Do not invent vulnerabilities.
           - If uncertain, prefix with "Potential concern:".
-          - If no obvious issues, say so clearly.
+          - If no obvious issues are visible, say so clearly.
           - End with the disclaimer about automated review.
           """
 
@@ -168,9 +173,9 @@ jobs:
               "https://api.anthropic.com/v1/messages",
               data=json.dumps(payload).encode(),
               headers={
-                  "x-api-key":         api_key,
+                  "x-api-key": api_key,
                   "anthropic-version": "2023-06-01",
-                  "content-type":      "application/json",
+                  "content-type": "application/json",
               },
               method="POST",
           )
@@ -182,58 +187,66 @@ jobs:
               err_body = e.read().decode()
               print(f"Anthropic API error {e.code}: {err_body}", file=sys.stderr)
               sys.exit(1)
+          except Exception as e:
+              print(f"Unexpected Anthropic API error: {e}", file=sys.stderr)
+              sys.exit(1)
 
-          # Extract all text blocks from the response.
           review_text = "\n".join(
               block["text"]
               for block in body.get("content", [])
               if block.get("type") == "text"
-          )
+          ).strip()
 
-          # Write to file; GITHUB_OUTPUT multiline values need a delimiter.
+          if not review_text:
+              review_text = (
+                  "## Summary\n"
+                  "Claude returned an empty review.\n\n"
+                  "## Code Review\n"
+                  "- No review content returned.\n\n"
+                  "## Security Review\n"
+                  "- No security review content returned.\n\n"
+                  "## Recommended Next Steps\n"
+                  "- Re-run the workflow and inspect the API response.\n\n"
+                  "_Automated review; not a substitute for formal AppSec review or automated scanning tools._"
+              )
+
           with open("/tmp/review.md", "w") as f:
-              f.write(review_text)
+              f.write(review_text + "\n")
 
           print("Review written to /tmp/review.md")
-          print(f"Input tokens:  {body.get('usage', {}).get('input_tokens', 'n/a')}")
+          print(f"Input tokens: {body.get('usage', {}).get('input_tokens', 'n/a')}")
           print(f"Output tokens: {body.get('usage', {}).get('output_tokens', 'n/a')}")
           PYEOF
 
-      # ── 5. Post the review as a PR comment ──────────────────────────────────
-      # Read the review from the temp file and post it via the GitHub Issues API.
-      # We prepend a small header so readers know the comment is automated.
       - name: Post Claude review as PR comment
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO:     ${{ github.repository }}
-          ISSUE:    ${{ github.event.issue.number }}
-          PR_URL:   ${{ steps.pr_meta.outputs.pr_url }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+          PR_URL: ${{ steps.pr_meta.outputs.pr_url }}
         run: |
-          HEADER="### 🤖 Claude Automated Review
+          cat > /tmp/comment_header.md <<EOF
+          ### 🤖 Claude Automated Review
           > Triggered by @${{ github.event.comment.user.login }} on [this PR](${PR_URL}).
           > Model: \`claude-sonnet-4-6\` — $(date -u '+%Y-%m-%d %H:%M UTC')
 
-          "
-          REVIEW=$(cat /tmp/review.md)
-          BODY="${HEADER}${REVIEW}"
+          EOF
 
-          # Write the combined body to a file to avoid shell quoting issues.
-          echo "$BODY" > /tmp/comment_body.md
+          cat /tmp/comment_header.md /tmp/review.md > /tmp/comment_body.md
+
+          jq -n --rawfile body /tmp/comment_body.md '{body: $body}' > /tmp/comment.json
 
           gh api \
             --method POST \
             "repos/${REPO}/issues/${ISSUE}/comments" \
-            --field "body=$(cat /tmp/comment_body.md)"
+            --input /tmp/comment.json
 
-      # ── 6. Handle failures gracefully ────────────────────────────────────────
-      # If any earlier step failed, post an error comment so the reviewer isn't
-      # left wondering what happened.
       - name: Post failure notice on error
         if: failure()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO:     ${{ github.repository }}
-          ISSUE:    ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
         run: |
           gh api \
             --method POST \
