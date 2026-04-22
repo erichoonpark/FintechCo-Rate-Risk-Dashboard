@@ -20,7 +20,7 @@ jobs:
     # Guard 1 — only run on pull request comments (not plain issue comments).
     # Guard 2 — only run when the comment body contains "@claude review".
     # Guard 3 — ignore comments from bots so the workflow doesn't trigger on its own reply.
-    if: |
+    if: >-
       github.event.issue.pull_request != null &&
       contains(github.event.comment.body, '@claude review') &&
       github.event.comment.user.type != 'Bot'
@@ -67,24 +67,22 @@ jobs:
           REPO:     ${{ github.repository }}
           PR_NUM:   ${{ github.event.issue.number }}
         run: |
-          DIFF=$(gh api \
+          gh api \
             --header "Accept: application/vnd.github.diff" \
-            "repos/${REPO}/pulls/${PR_NUM}")
+            "repos/${REPO}/pulls/${PR_NUM}" > /tmp/pr.diff.full
 
-          # Truncate to 60 000 characters to keep the Claude payload manageable.
-          TRUNCATED=$(echo "$DIFF" | head -c 60000)
+          # Truncate to 60 000 bytes to keep the Claude payload manageable.
+          head -c 60000 /tmp/pr.diff.full > /tmp/pr.diff
 
-          # Check whether we had to truncate and add a note if so.
-          ORIG_LEN=${#DIFF}
-          TRUNC_LEN=${#TRUNCATED}
+          ORIG_LEN=$(wc -c < /tmp/pr.diff.full)
+          TRUNC_LEN=$(wc -c < /tmp/pr.diff)
+
+          # Append a note if we had to truncate — no unindented bare [ needed.
           if [ "$ORIG_LEN" -gt "$TRUNC_LEN" ]; then
-            TRUNCATED="${TRUNCATED}
-
-[... diff truncated at 60 000 characters; ${ORIG_LEN} characters total ...]"
+            printf '\n\n[diff truncated at 60,000 bytes — %s bytes in full diff]\n' \
+              "$ORIG_LEN" >> /tmp/pr.diff
           fi
 
-          # Write to a temp file — multiline strings in GITHUB_OUTPUT are fragile.
-          echo "$TRUNCATED" > /tmp/pr.diff
           echo "diff_len=${TRUNC_LEN}" >> "$GITHUB_OUTPUT"
 
       # ── 4. Call the Anthropic Messages API ──────────────────────────────────
