@@ -1,11 +1,10 @@
 """
 Dashboard renderer: generates a self-contained HTML dashboard for CFO/stakeholder use
-from risk_signal.json, risk_memo.md, and risk_alert.json.
+from risk_signal.json.
 
 Also retains the legacy PNG render() function for internal use.
 """
 
-import re
 import json
 import datetime
 from pathlib import Path
@@ -20,8 +19,6 @@ OUTPUT_DIR = Path(__file__).parents[2] / "output"
 DATA_DIR   = Path(__file__).parents[2] / "data"
 
 SIGNAL_PATH = OUTPUT_DIR / "risk_signal.json"
-MEMO_PATH   = OUTPUT_DIR / "risk_memo.md"
-ALERT_PATH  = OUTPUT_DIR / "risk_alert.json"
 OUT_PNG     = OUTPUT_DIR / "risk_dashboard.png"
 OUT_HTML    = OUTPUT_DIR / "risk_dashboard.html"
 
@@ -221,7 +218,6 @@ _HTML_TEMPLATE = """\
           <div class="badge">%%SEVERITY_LABEL%%</div>
           <div class="hero-val">%%CURRENT_INDEX%%</div>
           <div class="hero-val-sub">Rate Risk Index &middot; %%CURRENT_DATE%%</div>
-          %%PRIMARY_DRIVER%%
         </div>
       </div>
     </div>
@@ -271,24 +267,6 @@ _HTML_TEMPLATE = """\
         </div>
       </div>
 
-      <div class="card">
-        <div class="label">Recommended Actions</div>
-        %%ACTIONS_HTML%%
-      </div>
-
-    </div>
-  </div>
-
-  <!-- ── Executive memo (collapsible) ── -->
-  <div class="section">
-    <div class="card">
-      <button class="accordion-btn" onclick="toggleMemo(this)" aria-expanded="false">
-        <span class="accordion-title">Executive Memo</span>
-        <span class="accordion-caret" id="caret">&#9660;</span>
-      </button>
-      <div class="accordion-body" id="memo-body">
-        %%MEMO_HTML%%
-      </div>
     </div>
   </div>
 
@@ -303,13 +281,7 @@ _HTML_TEMPLATE = """\
 const spec = %%CHART_JSON%%;
 Plotly.newPlot('chart', spec.data, spec.layout, {responsive: true, displayModeBar: false});
 
-function toggleMemo(btn) {
-  const body   = document.getElementById('memo-body');
-  const caret  = document.getElementById('caret');
-  const isOpen = body.classList.toggle('open');
-  caret.classList.toggle('open', isOpen);
-  btn.setAttribute('aria-expanded', String(isOpen));
-}
+
 </script>
 
 </body>
@@ -318,28 +290,6 @@ function toggleMemo(btn) {
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
-
-def _md_to_html(text: str) -> str:
-    """Minimal Markdown → HTML for the executive memo (headings, bold, hr, paragraphs)."""
-    lines = text.split("\n")
-    out = []
-    for line in lines:
-        stripped = line.strip()
-        if stripped.startswith("### "):
-            out.append(f"<h3>{stripped[4:]}</h3>")
-        elif stripped.startswith("## "):
-            out.append(f"<h2>{stripped[3:]}</h2>")
-        elif stripped.startswith("# "):
-            out.append(f"<h1>{stripped[2:]}</h1>")
-        elif stripped == "---":
-            out.append("<hr>")
-        elif stripped == "":
-            out.append("")
-        else:
-            processed = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", stripped)
-            out.append(f"<p>{processed}</p>")
-    return "\n".join(out)
-
 
 def _build_chart(signal: pd.DataFrame) -> str:
     """Return Plotly figure JSON for the risk index chart."""
@@ -451,18 +401,18 @@ def render_html() -> None:
     """Render the CFO-grade interactive HTML dashboard."""
     signal = load_signal()
 
-    # Load alert and memo (may not exist on first run)
-    alert = {}
-    if ALERT_PATH.exists():
-        alert = json.loads(ALERT_PATH.read_text())
-    memo_text = MEMO_PATH.read_text() if MEMO_PATH.exists() else ""
-
     # Current state
-    latest       = signal.iloc[-1]
+    latest        = signal.iloc[-1]
     current_index = latest["risk_index"]
     current_date  = signal.index[-1].strftime("%B %Y")
-    severity      = alert.get("severity", "NORMAL")
-    threshold_pct = alert.get("threshold_proximity_pct", 0.0)
+    abs_idx       = abs(current_index)
+    if abs_idx >= 1.5:
+        severity = "CRITICAL"
+    elif abs_idx >= 0.75:
+        severity = "ELEVATED"
+    else:
+        severity = "NORMAL"
+    threshold_pct = min(abs_idx / 1.5 * 100, 100.0)
 
     sc = _SEVERITY_CONFIG.get(severity, _SEVERITY_CONFIG["NORMAL"])
 
@@ -471,25 +421,6 @@ def render_html() -> None:
     chart_json  = _build_chart(signal)
     gen_date    = datetime.date.today().strftime("%B %d, %Y")
     tpct        = f"{threshold_pct:.1f}"
-
-    primary_driver = alert.get("primary_driver", "")
-    primary_driver_html = (
-        f'<div class="hero-driver">Primary Driver: {primary_driver}</div>'
-        if primary_driver else ""
-    )
-
-    actions = alert.get("recommended_actions", [])
-    if actions:
-        items = "\n".join(
-            f'<li class="action-item">'
-            f'<span class="action-num">{i}</span>'
-            f'<span class="action-text">{action}</span>'
-            f'</li>'
-            for i, action in enumerate(actions, 1)
-        )
-        actions_html = f'<ul class="action-list">{items}</ul>'
-    else:
-        actions_html = '<p class="pending">AI analysis pending \u2014 run risk_alert.py to generate.</p>'
 
     html = (
         _HTML_TEMPLATE
@@ -503,8 +434,6 @@ def render_html() -> None:
         .replace("%%CURRENT_DATE%%",      current_date)
         .replace("%%THRESHOLD_PCT%%",     tpct)
         .replace("%%GENERATED_DATE%%",    gen_date)
-        .replace("%%PRIMARY_DRIVER%%",    primary_driver_html)
-        .replace("%%ACTIONS_HTML%%",      actions_html)
     )
     OUTPUT_DIR.mkdir(exist_ok=True)
     OUT_HTML.write_text(html, encoding="utf-8")
